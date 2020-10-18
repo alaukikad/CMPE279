@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <pwd.h>
+
 #define PORT 8080
 int main(int argc, char const *argv[])
 {
@@ -14,9 +16,19 @@ int main(int argc, char const *argv[])
     int addrlen = sizeof(address);
     char buffer[102] = {0};
     char *hello = "Hello from server";
+    struct passwd* pwd;
+    long uid = 65534; // user nobody in Unix systems
+    int forkId; 
 
     printf("execve=0x%p\n", execve);
 
+    // Getting the user id for nobody user
+    pwd = getpwnam("nobody");
+    if (pwd != NULL) {
+      uid = (long)pwd->pw_uid;  
+      printf("\nThe uid for Nobody user for this system is:%ld \n",uid);
+    }
+    
     // Creating socket file descriptor
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
     {
@@ -42,6 +54,18 @@ int main(int argc, char const *argv[])
         perror("bind failed");
         exit(EXIT_FAILURE);
     }
+
+    forkId=fork();
+
+    if(forkId == 0) {	       
+      setuid(uid);
+    } else if (forkId > 0) {
+      printf("\nIn child\n");
+      exit(0);      
+    } else {
+      printf("\nCould not fork\n");	    
+    }    
+
     if (listen(server_fd, 3) < 0)
     {
         perror("listen");
