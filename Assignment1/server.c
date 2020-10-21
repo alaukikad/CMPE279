@@ -55,17 +55,6 @@ int main(int argc, char const *argv[])
         exit(EXIT_FAILURE);
     }
 
-    forkId=fork();
-
-    if(forkId == 0) {	       
-      setuid(uid);
-    } else if (forkId > 0) {
-      printf("\nIn child\n");
-      exit(0);      
-    } else {
-      printf("\nCould not fork\n");	    
-    }    
-
     if (listen(server_fd, 3) < 0)
     {
         perror("listen");
@@ -77,6 +66,18 @@ int main(int argc, char const *argv[])
         perror("accept");
         exit(EXIT_FAILURE);
     }
+    
+    forkId=fork();
+
+    if(forkId == 0) {
+      setuid(uid);
+    } else if (forkId > 0) {
+      printf("\nIn child\n");
+      exit(0);
+    } else {
+      printf("\nCould not fork\n");
+    }
+
     valread = read( new_socket , buffer, 1024);
     printf("%s\n",buffer );
     send(new_socket , hello , strlen(hello) , 0 );
