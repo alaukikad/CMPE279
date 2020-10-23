@@ -8,81 +8,131 @@
 #include <pwd.h>
 
 #define PORT 8080
+
+void execChildProcess(char *argv[]);
+
 int main(int argc, char const *argv[])
 {
     int server_fd, new_socket, valread;
     struct sockaddr_in address;
     int opt = 1;
     int addrlen = sizeof(address);
-    char buffer[102] = {0};
-    char *hello = "Hello from server";
+
+    // For checking status for failure    
     int forkId;
     int execId;
 
     printf("execve=0x%p\n", execve);
     
-    // Creating socket file descriptor
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
-    {
-        perror("socket failed");
-        exit(EXIT_FAILURE);
-    }
 
-    // Forcefully attaching socket to the port 8080
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
-                                                  &opt, sizeof(opt)))
-    {
-        perror("setsockopt");
-        exit(EXIT_FAILURE);
-    }
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons( PORT );
-
-    // Forcefully attaching socket to the port 8080
-    if (bind(server_fd, (struct sockaddr *)&address,
-                                 sizeof(address))<0)
-    {
-        perror("bind failed");
-        exit(EXIT_FAILURE);
-    }
-
-    if (listen(server_fd, 3) < 0)
-    {
-        perror("listen");
-        exit(EXIT_FAILURE);
-    }
-    if ((new_socket = accept(server_fd, (struct sockaddr *)&address,
-                       (socklen_t*)&addrlen))<0)
-    {
-        perror("accept");
-        exit(EXIT_FAILURE);
-    }
+    if(argc > 1){
     
-    forkId=fork();
+       //This is called when the child process is getting exec'ed
+       execChildProcess(argv);
+    
+    } else {	    
+       //This is the parent process 
+	
+       // Creating socket file descriptor
+       if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
+       {
+         perror("socket failed");
+         exit(EXIT_FAILURE);
+       }
+   
+       // Forcefully attaching socket to the port 8080 
+       if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
+                                                  &opt, sizeof(opt)))
+       {
+      	 perror("setsockopt");
+         exit(EXIT_FAILURE);
+       }
+    
+       address.sin_family = AF_INET;
+       address.sin_addr.s_addr = INADDR_ANY;
+       address.sin_port = htons( PORT );
 
-    if(forkId == 0) {
-      printf("In child");
-      char *arguments[] = {"childExec", &new_socket, NULL};
-        execId = execv("childExec",arguments);
-        if(execId >=0){
-            printf("Could execc");
-        } else{
-            printf("Error in exec");
-            exit(0);
-        }
+      // Forcefully attaching socket to the port 8080
+      if (bind(server_fd, (struct sockaddr *)&address,
+                                 sizeof(address))<0)
+      {
+         perror("bind failed");
+         exit(EXIT_FAILURE);
+      }
 
-    } else if (forkId > 0) {
-      wait(NULL);
-      printf("\nIn parent\n");
-      exit(0);
-    } else {
-      printf("\nCould not fork\n");
+     if (listen(server_fd, 3) < 0)
+     {
+         perror("listen");
+         exit(EXIT_FAILURE);
+     }
+    
+     if ((new_socket = accept(server_fd, (struct sockaddr *)&address,
+                       (socklen_t*)&addrlen))<0)
+     {
+         perror("accept");
+         exit(EXIT_FAILURE);
+     }
+    
+     forkId=fork();
+
+     if(forkId == 0) {
+       printf("In child");
+
+       char *arguments[] = {"server", &new_socket, NULL};
+       
+       execId = execv("server",arguments); //exec the child with socket file descriptor
+       
+       if(execId == -1){
+          printf("Error in exec");
+          exit(0);
+       }
+
+     } else if (forkId > 0) {
+       
+       wait(NULL);
+       printf("\nIn parent\n");
+       exit(0);
+    
+     } else {
+       printf("\nError in fork\n");
+     }
+    }
+     return 0;
+}
+
+
+void execChildProcess(char *argv[]){
+    int valread;
+    char buffer[1024] = {0}; 
+    char *hello = "Hello from server";
+    int setid;
+    struct passwd* pwd;
+    long uid = 65534; // user nobody in Unix systems 
+
+    // Getting the user id for nobody user
+    pwd = getpwnam("nobody");
+    if (pwd != NULL) {
+      uid = (long)pwd->pw_uid;
     }
 
-    valread = read( new_socket , buffer, 1024);
-    printf("%s\n",buffer );
-    send(new_socket , hello , strlen(hello) , 0 );
+    printf("inside child process after exec\n");
+
+    printf("The nobody user is uid:%ld\n",uid);
+
+    setid = setuid(uid); 
+    if(uid == -1){
+	printf("Error in setting the user to nobody user while dropping privileges\n");
+        exit(0);
+    }
+
+    valread = read( *argv[1] , buffer, 1024);
+   
+    printf("%s\n",buffer ); 
+   
+    send( *argv[1] , hello , strlen(hello) , 0 );
+   
     printf("Hello message sent\n");
-    return 0;
-}
+    printf("Finished exec process by child\n");
+   
+    return 0; 
+}	
