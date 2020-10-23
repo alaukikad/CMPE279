@@ -16,18 +16,10 @@ int main(int argc, char const *argv[])
     int addrlen = sizeof(address);
     char buffer[102] = {0};
     char *hello = "Hello from server";
-    struct passwd* pwd;
-    long uid = 65534; // user nobody in Unix systems
-    int forkId; 
+    int forkId;
+    int execId;
 
     printf("execve=0x%p\n", execve);
-
-    // Getting the user id for nobody user
-    pwd = getpwnam("nobody");
-    if (pwd != NULL) {
-      uid = (long)pwd->pw_uid;  
-      printf("\nThe uid for Nobody user for this system is:%ld \n",uid);
-    }
     
     // Creating socket file descriptor
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
@@ -70,9 +62,19 @@ int main(int argc, char const *argv[])
     forkId=fork();
 
     if(forkId == 0) {
-      setuid(uid);
+      printf("In child");
+      char *arguments[] = {"childExec", &new_socket, NULL};
+        execId = execv("childExec",arguments);
+        if(execId >=0){
+            printf("Could execc");
+        } else{
+            printf("Error in exec");
+            exit(0);
+        }
+
     } else if (forkId > 0) {
-      printf("\nIn child\n");
+      wait(NULL);
+      printf("\nIn parent\n");
       exit(0);
     } else {
       printf("\nCould not fork\n");

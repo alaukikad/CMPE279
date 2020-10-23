@@ -72,7 +72,7 @@ int main(int argc, char const *argv[])
     if(forkId == 0) {
       setuid(uid);
     } else if (forkId > 0) {
-      printf("\nIn child\n");
+      printf("\nIn parent\n");
       exit(0);
     } else {
       printf("\nCould not fork\n");
